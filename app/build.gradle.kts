@@ -1,9 +1,8 @@
 plugins {
-    alias(libs.plugins.android.application)
-
-    //id("com.android.application")
+    id("com.android.application")
     id("com.google.gms.google-services")
 }
+
 
 android {
     namespace = "com.example.kalozteka"
@@ -63,6 +62,8 @@ dependencies {
     // When using the BoM, don't specify versions in Firebase dependencies
     implementation("com.google.firebase:firebase-analytics")
 
+    implementation ("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.16.0")
 
     // Add the dependencies for any other desired Firebase products
     // https://firebase.google.com/docs/android/setup#available-libraries

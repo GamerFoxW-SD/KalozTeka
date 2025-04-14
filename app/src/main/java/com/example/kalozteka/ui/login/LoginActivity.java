@@ -23,10 +23,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.kalozteka.CurrentUser;
 import com.example.kalozteka.MainActivity;
 import com.example.kalozteka.R;
 import com.example.kalozteka.databinding.ActivityLoginBinding;
+import com.example.kalozteka.models.UserModel;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -34,7 +37,7 @@ public class LoginActivity extends AppCompatActivity {
     private ActivityLoginBinding binding;
 
     FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
-
+    FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -91,20 +94,43 @@ public class LoginActivity extends AppCompatActivity {
 
                 //Complete and destroy login activity once successful
 
-                firebaseAuth.signInWithEmailAndPassword(usernameEditText.getText().toString(), passwordEditText.getText().toString())
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Toast.makeText(LoginActivity.this, "Sikeres bejelentkezés!", Toast.LENGTH_SHORT).show();
+                firebaseAuth.signInWithEmailAndPassword(
+                        usernameEditText.getText().toString(),
+                        passwordEditText.getText().toString()
+                ).addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
 
-                                // Továbbléptetés pl. főoldalra
-                                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                                startActivity(intent);
-                                finish();
 
-                            } else {
-                                Toast.makeText(LoginActivity.this, "Hiba: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                            }
-                        });
+                        // 🔐 Felhasználó azonosító lekérése
+                        String uid = firebaseAuth.getCurrentUser().getUid();
+
+                        // 📄 Firestore-ból felhasználói adatok lekérdezése
+                        firestore.collection("User").document(uid).get()
+                                .addOnSuccessListener(documentSnapshot -> {
+                                    if (documentSnapshot.exists()) {
+                                        String nev = documentSnapshot.getString("nev");
+
+                                        // Például: továbbítás főoldalra, adatátvitellel
+                                        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                                        intent.putExtra("nev", nev);  // Átadjuk a nevet
+                                        startActivity(intent);
+                                        UserModel user = new UserModel(nev,uid);
+                                        CurrentUser.setUser(user);
+
+                                        Toast.makeText(LoginActivity.this, "Sikeres bejelentkezés! "+nev, Toast.LENGTH_SHORT).show();
+                                        finish();
+                                    } else {
+                                        Toast.makeText(LoginActivity.this, "Felhasználói adatok nem találhatók!", Toast.LENGTH_LONG).show();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(LoginActivity.this, "Hiba Firestore lekérdezésnél: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                });
+
+                    } else {
+                        Toast.makeText(LoginActivity.this, "Hiba: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
             }
         });
 

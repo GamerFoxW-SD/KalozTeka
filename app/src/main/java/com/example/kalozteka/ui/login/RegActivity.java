@@ -11,6 +11,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.Nullable;
@@ -30,6 +31,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 
+import com.example.kalozteka.MainActivity;
 import com.example.kalozteka.R;
 import com.example.kalozteka.ui.login.LoginViewModel;
 import com.example.kalozteka.ui.login.LoginViewModelFactory;
@@ -52,6 +54,7 @@ public class RegActivity extends AppCompatActivity {
     private ActivityRegBinding binding;
 
     private FirebaseAuth firebaseAuth;
+    private FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -70,8 +73,8 @@ public class RegActivity extends AppCompatActivity {
         final Button loginButton = binding.login;
         final ProgressBar loadingProgressBar = binding.loading;
 
-        EditText nevt = findViewById(R.id.nev_text);
-        String nevs = nevt.getText().toString().trim();
+
+
 
 
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -88,6 +91,7 @@ public class RegActivity extends AppCompatActivity {
 
 
         loginViewModel.getLoginFormState().observe(this, new Observer<LoginFormState>() {
+
             @Override
             public void onChanged(@Nullable LoginFormState loginFormState) {
                 if (loginFormState == null) {
@@ -118,39 +122,37 @@ public class RegActivity extends AppCompatActivity {
                     updateUiWithUser(loginResult.getSuccess());
                 }
                 setResult(Activity.RESULT_OK);
-
+                EditText nevt = findViewById(R.id.nev_text);
+                String nevs = nevt.getText().toString().trim();
                 //Complete and destroy login activity once successful
-                firebaseAuth.createUserWithEmailAndPassword(
-                        emailEditText.getText().toString(),
-                        passwordEditText.getText().toString()
-                ).addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d(LOG_TAG, "Sikeres regisztráció!");
-                        FirebaseUser user = firebaseAuth.getCurrentUser();
+                firebaseAuth.createUserWithEmailAndPassword(emailEditText.getText().toString(), passwordEditText.getText().toString())
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                String uid = firebaseAuth.getCurrentUser().getUid();
 
-                        // Firestore-ba mentés
-                        FirebaseFirestore db = FirebaseFirestore.getInstance();
-                        Map<String, Object> userData = new HashMap<>();
-                        userData.put("username", nevs);
-                        userData.put("email", user.getEmail());
+                                // 🔖 Firestore-ba mentjük az adatokat
+                                Map<String, Object> userData = new HashMap<>();
+                                userData.put("nev", nevs);
 
-                        db.collection("users").document(user.getUid())
-                                .set(userData)
-                                .addOnSuccessListener(aVoid -> {
-                                    Log.d(LOG_TAG, "Felhasználónév sikeresen elmentve Firestore-ba");
-                                    // Például átirányítás főképernyőre:
-                                    finish();
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.w(LOG_TAG, "Hiba a felhasználónév mentésekor", e);
-                                    Toast.makeText(RegActivity.this, "Nem sikerült a felhasználónév mentése", Toast.LENGTH_SHORT).show();
-                                });
+                                firestore.collection("User").document(uid)
+                                        .set(userData)
+                                        .addOnSuccessListener(unused -> {
+                                            Toast.makeText(RegActivity.this, "Sikeres regisztráció!", Toast.LENGTH_SHORT).show();
 
-                    } else {
-                        Log.w(LOG_TAG, "Regisztráció sikertelen", task.getException());
-                        Toast.makeText(RegActivity.this, "Regisztráció sikertelen: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                });
+                                            // Átirányítás főoldalra, vagy beléptető képernyőre
+                                            Intent intent = new Intent(RegActivity.this, LoginActivity.class);
+                                            intent.putExtra("nev", nevs);  // Átadjuk a nevet, ha kell
+                                            startActivity(intent);
+                                            finish();
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Toast.makeText(RegActivity.this, "Hiba az adatok mentésekor: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                        });
+
+                            } else {
+                                Toast.makeText(RegActivity.this, "Hiba: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        });
 
 
 
